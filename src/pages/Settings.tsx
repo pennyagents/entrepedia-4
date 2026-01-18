@@ -12,8 +12,9 @@ import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { Camera, Save, LogOut, Mail, CheckCircle, AlertCircle } from 'lucide-react';
+import { Camera, Save, LogOut, Mail, CheckCircle, AlertCircle, AlertTriangle, User } from 'lucide-react';
 import { PanchayathLocationPicker } from '@/components/settings/PanchayathLocationPicker';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 export default function Settings() {
   const navigate = useNavigate();
@@ -100,11 +101,46 @@ export default function Settings() {
     navigate('/');
   };
 
+  // Calculate profile completion
+  const isProfileIncomplete = !profile?.full_name || !profile?.username || !profile?.bio || !profile?.avatar_url || !profile?.location;
+  const isEmailNotVerified = !user.email || user.email.includes('@phone.local');
+  
+  const getMissingFields = () => {
+    const missing: string[] = [];
+    if (!profile?.full_name) missing.push('Full Name');
+    if (!profile?.username) missing.push('Username');
+    if (!profile?.bio) missing.push('Bio');
+    if (!profile?.avatar_url) missing.push('Profile Photo');
+    if (!profile?.location) missing.push('Location');
+    return missing;
+  };
 
   return (
     <MainLayout>
       <div className="max-w-2xl mx-auto px-4 py-6 space-y-6">
         <h1 className="text-3xl font-bold text-foreground">Settings</h1>
+
+        {/* Profile Incomplete Reminder */}
+        {isProfileIncomplete && (
+          <Alert variant="default" className="border-amber-500/50 bg-amber-50 dark:bg-amber-950/20">
+            <AlertTriangle className="h-4 w-4 text-amber-600" />
+            <AlertTitle className="text-amber-800 dark:text-amber-400">Your profile is not completed</AlertTitle>
+            <AlertDescription className="text-amber-700 dark:text-amber-300">
+              Complete your profile to help others find and connect with you. Missing: {getMissingFields().join(', ')}.
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {/* Email Verification Reminder */}
+        {isEmailNotVerified && (
+          <Alert variant="default" className="border-red-500/50 bg-red-50 dark:bg-red-950/20">
+            <AlertCircle className="h-4 w-4 text-red-600" />
+            <AlertTitle className="text-red-800 dark:text-red-400">Your account is not verified</AlertTitle>
+            <AlertDescription className="text-red-700 dark:text-red-300">
+              Add and verify your email address. Unverified accounts may have limited features and could affect your future development on the platform.
+            </AlertDescription>
+          </Alert>
+        )}
 
         {/* Profile Settings */}
         <Card className="border-0 shadow-soft">
