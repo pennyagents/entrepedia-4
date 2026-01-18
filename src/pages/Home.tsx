@@ -6,6 +6,7 @@ import { CreatePostCard } from '@/components/feed/CreatePostCard';
 import { BusinessFeed } from '@/components/feed/BusinessFeed';
 import { CommunityFeed } from '@/components/feed/CommunityFeed';
 import { DiscoverSidebar } from '@/components/feed/DiscoverSidebar';
+import { LocationPromptCard } from '@/components/feed/LocationPromptCard';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -132,6 +133,9 @@ export default function Home() {
 
           {/* Main Feed */}
           <div className="lg:col-span-6 space-y-6">
+            {/* Location Prompt for logged-in users */}
+            {user && <LocationPromptCard />}
+
             {/* Mobile Quick Action */}
             <div className="flex gap-2 lg:hidden">
               <Button 
