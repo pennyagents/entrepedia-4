@@ -84,13 +84,18 @@ export default function CommunityDetail() {
         .from('communities')
         .select('*')
         .eq('id', id)
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
+      if (!communityData) {
+        setLoading(false);
+        return;
+      }
+      
       setCommunity(communityData);
       setIsCreator(communityData.created_by === user?.id);
 
-      // Fetch members
+      // Fetch members with profiles
       const { data: membersData } = await supabase
         .from('community_members')
         .select(`
@@ -109,28 +114,77 @@ export default function CommunityDetail() {
         setIsMember(isMemberCheck);
       }
 
-      // Fetch discussions (we'll use comments table for this, or create a simple approach)
-      // For now, let's create a simple approach using posts
+      // Fetch discussions from community_discussions table
       const { data: discussionsData } = await supabase
-        .from('comments')
+        .from('community_discussions')
         .select(`
           id,
           content,
           created_at,
-          user_id,
-          profiles:user_id (id, full_name, username, avatar_url)
+          user_id
         `)
-        .eq('post_id', id) // Using post_id as a workaround for community discussions
+        .eq('community_id', id)
         .order('created_at', { ascending: false })
         .limit(50);
 
-      // For now, let's just show empty discussions since we don't have a proper table
-      setDiscussions([]);
+      // Fetch profiles for discussions separately
+      if (discussionsData && discussionsData.length > 0) {
+        const userIds = [...new Set(discussionsData.map(d => d.user_id))];
+        const { data: profilesData } = await supabase
+          .from('profiles')
+          .select('id, full_name, username, avatar_url')
+          .in('id', userIds);
+
+        const profilesMap = new Map(profilesData?.map(p => [p.id, p]) || []);
+        
+        const discussionsWithProfiles = discussionsData.map(d => ({
+          ...d,
+          profiles: profilesMap.get(d.user_id) || null
+        }));
+        
+        setDiscussions(discussionsWithProfiles);
+      } else {
+        setDiscussions([]);
+      }
     } catch (error) {
       console.error('Error fetching community:', error);
       toast({ title: 'Error loading community', variant: 'destructive' });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleSendMessage = async () => {
+    if (!user || !id || !newMessage.trim()) {
+      if (!user) navigate('/auth');
+      return;
+    }
+
+    if (!isMember) {
+      toast({ title: 'Join the community to participate in discussions', variant: 'destructive' });
+      return;
+    }
+
+    setSending(true);
+    try {
+      const { error } = await supabase
+        .from('community_discussions')
+        .insert({
+          community_id: id,
+          user_id: user.id,
+          content: newMessage.trim(),
+        });
+
+      if (error) throw error;
+      
+      setNewMessage('');
+      toast({ title: 'Message posted!' });
+      fetchCommunityData();
+    } catch (error: any) {
+      console.error('Error posting message:', error);
+      toast({ title: 'Error posting message', description: error.message, variant: 'destructive' });
+    } finally {
+      setSending(false);
     }
   };
 
@@ -303,18 +357,108 @@ export default function CommunityDetail() {
             </div>
           </TabsContent>
 
-          <TabsContent value="discussions" className="mt-4">
-            <Card className="border-0 shadow-soft">
-              <CardContent className="py-12 text-center">
-                <MessageSquare className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
-                <h3 className="text-xl font-semibold text-foreground mb-2">
-                  Discussions coming soon
-                </h3>
-                <p className="text-muted-foreground">
-                  Community discussions feature is under development
-                </p>
-              </CardContent>
-            </Card>
+          <TabsContent value="discussions" className="mt-4 space-y-4">
+            {/* New Message Input */}
+            {isMember ? (
+              <Card className="border-0 shadow-soft">
+                <CardContent className="p-4">
+                  <div className="flex gap-3">
+                    <Avatar className="h-10 w-10">
+                      <AvatarImage src={profile?.avatar_url || ''} />
+                      <AvatarFallback className="gradient-primary text-white">
+                        {profile?.full_name?.charAt(0) || 'U'}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1 flex gap-2">
+                      <Textarea
+                        placeholder="Start a discussion..."
+                        value={newMessage}
+                        onChange={(e) => setNewMessage(e.target.value)}
+                        className="min-h-[60px] resize-none flex-1"
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && !e.shiftKey) {
+                            e.preventDefault();
+                            handleSendMessage();
+                          }
+                        }}
+                      />
+                      <Button 
+                        onClick={handleSendMessage} 
+                        disabled={sending || !newMessage.trim()}
+                        className="gradient-primary text-white self-end"
+                      >
+                        <Send className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ) : (
+              <Card className="border-0 shadow-soft">
+                <CardContent className="p-4 text-center">
+                  <p className="text-muted-foreground">
+                    <Button variant="link" className="p-0" onClick={handleJoin}>
+                      Join the community
+                    </Button>{' '}
+                    to participate in discussions
+                  </p>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Discussions List */}
+            {discussions.length > 0 ? (
+              <div className="space-y-3">
+                {discussions.map((discussion) => (
+                  <Card key={discussion.id} className="border-0 shadow-soft">
+                    <CardContent className="p-4">
+                      <div className="flex gap-3">
+                        <Avatar 
+                          className="h-10 w-10 cursor-pointer"
+                          onClick={() => navigate(`/user/${discussion.user_id}`)}
+                        >
+                          <AvatarImage src={discussion.profiles?.avatar_url || ''} />
+                          <AvatarFallback className="gradient-primary text-white">
+                            {discussion.profiles?.full_name?.charAt(0) || 'U'}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span 
+                              className="font-semibold text-foreground cursor-pointer hover:underline"
+                              onClick={() => navigate(`/user/${discussion.user_id}`)}
+                            >
+                              {discussion.profiles?.full_name || 'Anonymous'}
+                            </span>
+                            <span className="text-xs text-muted-foreground">
+                              @{discussion.profiles?.username || 'user'}
+                            </span>
+                            <span className="text-xs text-muted-foreground">
+                              · {formatDistanceToNow(new Date(discussion.created_at), { addSuffix: true })}
+                            </span>
+                          </div>
+                          <p className="text-foreground whitespace-pre-wrap break-words">
+                            {discussion.content}
+                          </p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            ) : (
+              <Card className="border-0 shadow-soft">
+                <CardContent className="py-12 text-center">
+                  <MessageSquare className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
+                  <h3 className="text-xl font-semibold text-foreground mb-2">
+                    No discussions yet
+                  </h3>
+                  <p className="text-muted-foreground">
+                    {isMember ? 'Be the first to start a discussion!' : 'Join the community to start a discussion'}
+                  </p>
+                </CardContent>
+              </Card>
+            )}
           </TabsContent>
         </Tabs>
       </div>
