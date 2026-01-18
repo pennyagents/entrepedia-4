@@ -1,18 +1,49 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Button } from '@/components/ui/button';
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Check, ChevronsUpDown, MapPin, Loader2 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
-// Kerala Districts with their Panchayaths (sample data - expandable)
+// Countries list (common ones first, then alphabetical)
+const COUNTRIES = [
+  'India',
+  'United Arab Emirates',
+  'Saudi Arabia',
+  'Qatar',
+  'Kuwait',
+  'Oman',
+  'Bahrain',
+  'United States',
+  'United Kingdom',
+  'Canada',
+  'Australia',
+  'Singapore',
+  'Malaysia',
+];
+
+// Kerala Districts
 const KERALA_DISTRICTS = [
   'Thiruvananthapuram', 'Kollam', 'Pathanamthitta', 'Alappuzha', 'Kottayam',
   'Idukki', 'Ernakulam', 'Thrissur', 'Palakkad', 'Malappuram',
   'Kozhikode', 'Wayanad', 'Kannur', 'Kasaragod'
 ];
+
+// Common panchayaths by district (for autocomplete suggestions)
+const COMMON_PANCHAYATHS: Record<string, string[]> = {
+  'Thiruvananthapuram': ['Nemom', 'Kazhakkoottam', 'Vattiyoorkavu', 'Sreekaryam', 'Pallipuram', 'Venganoor'],
+  'Kollam': ['Chavara', 'Karunagappally', 'Oachira', 'Punalur', 'Kundara', 'Paravur'],
+  'Pathanamthitta': ['Thiruvalla', 'Adoor', 'Pandalam', 'Ranni', 'Kozhencherry'],
+  'Alappuzha': ['Cherthala', 'Kayamkulam', 'Haripad', 'Mavelikara', 'Ambalapuzha'],
+  'Kottayam': ['Changanassery', 'Pala', 'Vaikom', 'Ettumanoor', 'Erattupetta'],
+  'Idukki': ['Thodupuzha', 'Adimali', 'Kattappana', 'Munnar', 'Nedumkandam'],
+  'Ernakulam': ['Aluva', 'Angamaly', 'Perumbavoor', 'Muvattupuzha', 'Kothamangalam', 'Kakkanad'],
+  'Thrissur': ['Kodungallur', 'Chalakudy', 'Irinjalakuda', 'Kunnamkulam', 'Guruvayur'],
+  'Palakkad': ['Ottapalam', 'Chittur', 'Mannarkkad', 'Pattambi', 'Shoranur'],
+  'Malappuram': ['Manjeri', 'Perinthalmanna', 'Tirur', 'Ponnani', 'Nilambur', 'Kondotty'],
+  'Kozhikode': ['Vatakara', 'Koyilandy', 'Feroke', 'Ramanattukara', 'Mukkom'],
+  'Wayanad': ['Kalpetta', 'Sulthan Bathery', 'Mananthavady', 'Panamaram'],
+  'Kannur': ['Thalassery', 'Kannur', 'Payyanur', 'Taliparamba', 'Iritty'],
+  'Kasaragod': ['Kanhangad', 'Nileshwaram', 'Manjeshwaram', 'Uppala', 'Cheruvathur']
+};
 
 interface LocationPickerProps {
   value: string;
@@ -20,248 +51,130 @@ interface LocationPickerProps {
 }
 
 export function PanchayathLocationPicker({ value, onChange }: LocationPickerProps) {
-  const [panchayath, setPanchayath] = useState('');
-  const [ward, setWard] = useState('');
+  const [country, setCountry] = useState('India');
   const [district, setDistrict] = useState('');
-  const [open, setOpen] = useState(false);
-  const [searchResults, setSearchResults] = useState<string[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  const debounceRef = useRef<NodeJS.Timeout>();
+  const [panchayath, setPanchayath] = useState('');
+  const [place, setPlace] = useState('');
 
   // Parse existing location value
   useEffect(() => {
     if (value) {
       const parts = value.split(',').map(s => s.trim());
-      if (parts.length >= 1) setPanchayath(parts[0] || '');
-      if (parts.length >= 2) setWard(parts[1] || '');
+      // Format: Place, Panchayath, District, Country
+      if (parts.length >= 1) setPlace(parts[0] || '');
+      if (parts.length >= 2) setPanchayath(parts[1] || '');
       if (parts.length >= 3) setDistrict(parts[2] || '');
+      if (parts.length >= 4) setCountry(parts[3] || 'India');
     }
   }, []);
 
   // Update parent when location changes
   useEffect(() => {
-    const locationParts = [panchayath, ward, district].filter(Boolean);
+    const locationParts = [place, panchayath, district, country].filter(Boolean);
     if (locationParts.length > 0) {
       onChange(locationParts.join(', '));
     }
-  }, [panchayath, ward, district]);
+  }, [country, district, panchayath, place]);
 
-  // Search for places using Nominatim (OpenStreetMap) - free API
-  const searchPlaces = async (query: string) => {
-    if (!query || query.length < 3) {
-      setSearchResults([]);
-      return;
-    }
-
-    setLoading(true);
-    try {
-      // Search for panchayaths/villages in Kerala, India
-      const response = await fetch(
-        `https://nominatim.openstreetmap.org/search?` +
-        `q=${encodeURIComponent(query + ' panchayat Kerala India')}&` +
-        `format=json&` +
-        `addressdetails=1&` +
-        `limit=10&` +
-        `countrycodes=in`
-      );
-      
-      if (!response.ok) throw new Error('Search failed');
-      
-      const data = await response.json();
-      
-      // Extract unique place names
-      const places = data.map((item: any) => {
-        const parts = [];
-        
-        // Get village/town/city name
-        const placeName = item.address?.village || 
-                         item.address?.town || 
-                         item.address?.city ||
-                         item.address?.suburb ||
-                         item.name;
-        
-        if (placeName) parts.push(placeName);
-        
-        // Get district
-        const districtName = item.address?.county || 
-                            item.address?.state_district ||
-                            item.address?.district;
-        
-        if (districtName && !parts.includes(districtName)) {
-          parts.push(districtName);
-        }
-        
-        return parts.join(', ');
-      }).filter((name: string, index: number, arr: string[]) => 
-        name && arr.indexOf(name) === index
-      );
-      
-      setSearchResults(places);
-    } catch (error) {
-      console.error('Place search error:', error);
-      // Fallback to local Kerala districts
-      const filtered = KERALA_DISTRICTS.filter(d => 
-        d.toLowerCase().includes(query.toLowerCase())
-      ).map(d => `${query}, ${d}`);
-      setSearchResults(filtered.length > 0 ? filtered : [`${query}, Kerala`]);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Debounced search
-  const handleSearchChange = (query: string) => {
-    setSearchQuery(query);
-    
-    if (debounceRef.current) {
-      clearTimeout(debounceRef.current);
-    }
-    
-    debounceRef.current = setTimeout(() => {
-      searchPlaces(query);
-    }, 500);
-  };
-
-  const handleSelectPlace = (place: string) => {
-    const parts = place.split(',').map(s => s.trim());
-    setPanchayath(parts[0] || '');
-    if (parts.length > 1) {
-      setDistrict(parts[1] || '');
-    }
-    setOpen(false);
-    setSearchQuery('');
-  };
+  // Get suggestions for panchayath based on selected district
+  const panchayathSuggestions = district ? COMMON_PANCHAYATHS[district] || [] : [];
+  const showPanchayathSelect = panchayathSuggestions.length > 0 && !panchayath;
 
   return (
     <div className="space-y-4">
+      {/* Country */}
+      <div className="space-y-2">
+        <Label>Country</Label>
+        <Select value={country} onValueChange={setCountry}>
+          <SelectTrigger>
+            <SelectValue placeholder="Select country" />
+          </SelectTrigger>
+          <SelectContent>
+            {COUNTRIES.map((c) => (
+              <SelectItem key={c} value={c}>
+                {c}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      {/* District - Only show for India */}
+      {country === 'India' && (
+        <div className="space-y-2">
+          <Label>District</Label>
+          <Select value={district} onValueChange={(val) => {
+            setDistrict(val);
+            setPanchayath(''); // Reset panchayath when district changes
+          }}>
+            <SelectTrigger>
+              <SelectValue placeholder="Select district" />
+            </SelectTrigger>
+            <SelectContent>
+              {KERALA_DISTRICTS.map((d) => (
+                <SelectItem key={d} value={d}>
+                  {d}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
+
+      {/* Panchayath - Show select if suggestions available, otherwise text input */}
       <div className="space-y-2">
         <Label>Panchayath / Municipality</Label>
-        <Popover open={open} onOpenChange={setOpen}>
-          <PopoverTrigger asChild>
-            <Button
-              variant="outline"
-              role="combobox"
-              aria-expanded={open}
-              className="w-full justify-between font-normal"
-            >
-              <div className="flex items-center gap-2">
-                <MapPin className="h-4 w-4 text-muted-foreground shrink-0" />
-                <span className={cn(!panchayath && "text-muted-foreground")}>
-                  {panchayath || "Search your panchayath..."}
-                </span>
-              </div>
-              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-full p-0 z-50" align="start">
-            <Command shouldFilter={false}>
-              <CommandInput 
-                placeholder="Type panchayath name..." 
-                value={searchQuery}
-                onValueChange={handleSearchChange}
-              />
-              <CommandList>
-                {loading ? (
-                  <div className="flex items-center justify-center py-6">
-                    <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-                    <span className="ml-2 text-sm text-muted-foreground">Searching...</span>
-                  </div>
-                ) : searchResults.length === 0 ? (
-                  <CommandEmpty>
-                    {searchQuery.length < 3 
-                      ? "Type at least 3 characters to search" 
-                      : "No panchayath found. Try a different name."}
-                  </CommandEmpty>
-                ) : (
-                  <CommandGroup heading="Suggestions">
-                    {searchResults.map((place) => (
-                      <CommandItem
-                        key={place}
-                        value={place}
-                        onSelect={() => handleSelectPlace(place)}
-                      >
-                        <Check
-                          className={cn(
-                            "mr-2 h-4 w-4",
-                            panchayath === place.split(',')[0]?.trim() 
-                              ? "opacity-100" 
-                              : "opacity-0"
-                          )}
-                        />
-                        <MapPin className="mr-2 h-4 w-4 text-muted-foreground" />
-                        {place}
-                      </CommandItem>
-                    ))}
-                  </CommandGroup>
-                )}
-              </CommandList>
-            </Command>
-          </PopoverContent>
-        </Popover>
+        {showPanchayathSelect ? (
+          <div className="space-y-2">
+            <Select value={panchayath} onValueChange={setPanchayath}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select or type panchayath" />
+              </SelectTrigger>
+              <SelectContent>
+                {panchayathSuggestions.map((p) => (
+                  <SelectItem key={p} value={p}>
+                    {p}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              Or type below if not in list
+            </p>
+            <Input
+              placeholder="Type panchayath name if not in list"
+              value={panchayath}
+              onChange={(e) => setPanchayath(e.target.value)}
+            />
+          </div>
+        ) : (
+          <Input
+            placeholder="Enter your panchayath / municipality"
+            value={panchayath}
+            onChange={(e) => setPanchayath(e.target.value)}
+          />
+        )}
+      </div>
+
+      {/* Place */}
+      <div className="space-y-2">
+        <Label>Place / Area</Label>
+        <Input
+          placeholder="Enter your place or area name"
+          value={place}
+          onChange={(e) => setPlace(e.target.value)}
+        />
         <p className="text-xs text-muted-foreground">
-          Start typing your panchayath or municipality name
+          Your specific locality or area name
         </p>
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label htmlFor="ward">Ward Number / Name</Label>
-          <Input
-            id="ward"
-            placeholder="e.g., Ward 5 or Mullakkal"
-            value={ward}
-            onChange={(e) => setWard(e.target.value)}
-          />
-        </div>
-        
-        <div className="space-y-2">
-          <Label htmlFor="district">District</Label>
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button
-                variant="outline"
-                role="combobox"
-                className="w-full justify-between font-normal"
-              >
-                {district || "Select district"}
-                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-full p-0 z-50" align="start">
-              <Command>
-                <CommandInput placeholder="Search district..." />
-                <CommandList>
-                  <CommandEmpty>No district found.</CommandEmpty>
-                  <CommandGroup>
-                    {KERALA_DISTRICTS.map((d) => (
-                      <CommandItem
-                        key={d}
-                        value={d}
-                        onSelect={() => setDistrict(d)}
-                      >
-                        <Check
-                          className={cn(
-                            "mr-2 h-4 w-4",
-                            district === d ? "opacity-100" : "opacity-0"
-                          )}
-                        />
-                        {d}
-                      </CommandItem>
-                    ))}
-                  </CommandGroup>
-                </CommandList>
-              </Command>
-            </PopoverContent>
-          </Popover>
-        </div>
-      </div>
-
-      {(panchayath || ward || district) && (
+      {/* Location Preview */}
+      {(place || panchayath || district || country) && (
         <div className="p-3 rounded-lg bg-muted/50 border">
           <p className="text-sm font-medium text-foreground">Your Location:</p>
           <p className="text-sm text-muted-foreground">
-            {[panchayath, ward, district].filter(Boolean).join(', ')}
+            {[place, panchayath, district, country].filter(Boolean).join(', ')}
           </p>
         </div>
       )}
