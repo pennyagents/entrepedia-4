@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
-import { Eye, EyeOff, Mail, Lock, User, ArrowLeft, Phone, AtSign } from 'lucide-react';
+import { Eye, EyeOff, Mail, Lock, User, ArrowLeft } from 'lucide-react';
 import { z } from 'zod';
 import { Checkbox } from '@/components/ui/checkbox';
 
@@ -21,7 +21,6 @@ const emailOrPhoneSchema = z.string().min(1, 'Email or mobile number is required
 );
 const passwordSchema = z.string().min(6, 'Password must be at least 6 characters');
 const nameSchema = z.string().min(2, 'Name must be at least 2 characters');
-const usernameSchema = z.string().min(3, 'Username must be at least 3 characters').regex(/^[a-zA-Z0-9_]+$/, 'Username can only contain letters, numbers, and underscores');
 
 export default function Auth() {
   const [searchParams] = useSearchParams();
@@ -31,7 +30,7 @@ export default function Auth() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [fullName, setFullName] = useState('');
-  const [username, setUsername] = useState('');
+  
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -81,11 +80,6 @@ export default function Auth() {
         newErrors.fullName = nameResult.error.errors[0].message;
       }
 
-      const usernameResult = usernameSchema.safeParse(username);
-      if (!usernameResult.success) {
-        newErrors.username = usernameResult.error.errors[0].message;
-      }
-
       if (password !== confirmPassword) {
         newErrors.confirmPassword = 'Passwords do not match';
       }
@@ -118,7 +112,7 @@ export default function Auth() {
           });
         }
       } else {
-        const { error } = await signUpWithEmail(authEmail, password, fullName, username);
+        const { error } = await signUpWithEmail(authEmail, password, fullName);
         if (error) {
           toast({
             title: 'Sign up failed',
@@ -128,7 +122,7 @@ export default function Auth() {
         } else {
           toast({
             title: 'Account created!',
-            description: 'Welcome to സംരംഭക.com! You can add your email in settings for a verified profile.'
+            description: 'Welcome to സംരംഭക.com! Please complete your profile in Settings.'
           });
         }
       }
@@ -154,8 +148,8 @@ export default function Auth() {
 
         {/* Logo */}
         <div className="text-center mb-8">
-          <img src="/assets/logo.jpeg" alt="Sam Logo" className="h-20 w-auto rounded-2xl mx-auto mb-4 shadow-glow" />
-          <h1 className="text-3xl font-bold text-foreground">സംരംഭക. com</h1>
+          <img src="/src/assets/logo.jpg" alt="സംരംഭക Logo" className="h-20 w-auto rounded-2xl mx-auto mb-4 shadow-glow" />
+          <h1 className="text-3xl font-bold text-foreground">സംരംഭക.com</h1>
           <p className="text-muted-foreground mt-2">Connect. Build. Grow.</p>
         </div>
 
@@ -194,21 +188,6 @@ export default function Auth() {
                     {errors.fullName && <p className="text-sm text-destructive">{errors.fullName}</p>}
                   </div>
 
-                  {/* Username */}
-                  <div className="space-y-2">
-                    <Label htmlFor="username">Username</Label>
-                    <div className="relative">
-                      <AtSign className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                      <Input 
-                        id="username" 
-                        placeholder="Choose a username" 
-                        className="pl-10" 
-                        value={username} 
-                        onChange={e => setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ''))} 
-                      />
-                    </div>
-                    {errors.username && <p className="text-sm text-destructive">{errors.username}</p>}
-                  </div>
                 </TabsContent>
 
                 {/* Email or Phone */}

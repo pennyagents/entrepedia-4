@@ -56,7 +56,7 @@ export function Navbar() {
           {/* Logo */}
           <Link to="/" className="flex items-center gap-2">
             <img 
-              src="/assets/logo.jpeg" 
+              src="/src/assets/logo.jpg" 
               alt="സംരംഭക.com Logo" 
               className="h-9 w-auto rounded-lg"
             />

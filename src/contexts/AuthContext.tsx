@@ -21,7 +21,7 @@ interface AuthContextType {
   loading: boolean;
   signInWithGoogle: () => Promise<void>;
   signInWithEmail: (email: string, password: string) => Promise<{ error: Error | null }>;
-  signUpWithEmail: (email: string, password: string, fullName: string, username: string) => Promise<{ error: Error | null }>;
+  signUpWithEmail: (email: string, password: string, fullName: string, username?: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
 }
@@ -96,7 +96,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { error: error as Error | null };
   };
 
-  const signUpWithEmail = async (email: string, password: string, fullName: string, username: string) => {
+  const signUpWithEmail = async (email: string, password: string, fullName: string, username?: string) => {
     const { error, data } = await supabase.auth.signUp({
       email,
       password,
@@ -104,16 +104,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         emailRedirectTo: `${window.location.origin}/`,
         data: {
           full_name: fullName,
-          username: username,
+          username: username || null,
         },
       },
     });
     
-    // Update profile with username after signup
+    // Update profile after signup
     if (!error && data.user) {
       await supabase
         .from('profiles')
-        .update({ username: username, full_name: fullName })
+        .update({ username: username || null, full_name: fullName })
         .eq('id', data.user.id);
     }
     
