@@ -7,6 +7,7 @@ import { BusinessFeed } from '@/components/feed/BusinessFeed';
 import { CommunityFeed } from '@/components/feed/CommunityFeed';
 import { DiscoverSidebar } from '@/components/feed/DiscoverSidebar';
 import { LocationPromptCard } from '@/components/feed/LocationPromptCard';
+import { ProfileCompletionBanner } from '@/components/feed/ProfileCompletionBanner';
 import { PromotionalBanner } from '@/components/feed/PromotionalBanner';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -137,6 +138,9 @@ export default function Home() {
             {/* Promotional Banners */}
             <PromotionalBanner />
             
+            {/* Profile Completion Warning - Fixed on top */}
+            {user && <ProfileCompletionBanner className="sticky top-16 z-40" />}
+
             {/* Location Prompt for logged-in users */}
             {user && <LocationPromptCard />}
 

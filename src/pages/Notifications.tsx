@@ -13,6 +13,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
+import { ProfileCompletionBanner } from "@/components/feed/ProfileCompletionBanner";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -309,6 +310,9 @@ export default function Notifications() {
   return (
     <MainLayout>
       <div className="max-w-4xl mx-auto px-4 py-6 space-y-6">
+        {/* Profile Completion Warning - Fixed on top */}
+        {userId && <ProfileCompletionBanner className="sticky top-16 z-40" />}
+
         <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <div className="flex items-center gap-3">

@@ -8,7 +8,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
-import { VerifiedBadge } from '@/components/ui/verified-badge';
+import { VerificationBadge } from '@/components/ui/verification-badge';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -271,7 +271,11 @@ export default function Profile() {
                   <div>
                     <h1 className="text-2xl font-bold text-foreground flex items-center">
                       {profileData.full_name || 'Anonymous'}
-                      {profileData.is_verified && <VerifiedBadge size="md" />}
+                      <VerificationBadge 
+                        isVerified={!!profileData.is_verified} 
+                        size="md" 
+                        showNotVerified={isOwnProfile}
+                      />
                     </h1>
                     <p className="text-muted-foreground">
                       @{profileData.username || 'user'}
@@ -442,7 +446,7 @@ function UserCard({ user }: { user: ProfileData }) {
           <div className="flex-1 min-w-0">
             <p className="font-semibold text-foreground truncate flex items-center">
               {user.full_name || 'Anonymous'}
-              {user.is_verified && <VerifiedBadge size="sm" />}
+              <VerificationBadge isVerified={!!user.is_verified} size="sm" />
             </p>
             <p className="text-sm text-muted-foreground truncate">
               @{user.username || 'user'}

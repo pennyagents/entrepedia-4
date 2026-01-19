@@ -19,11 +19,14 @@ interface AuthContextType {
   session: Session | null;
   profile: Profile | null;
   loading: boolean;
+  isEmailVerified: boolean;
+  isProfileComplete: boolean;
   signInWithGoogle: () => Promise<void>;
   signInWithEmail: (email: string, password: string) => Promise<{ error: Error | null }>;
   signUpWithEmail: (email: string, password: string, fullName: string, username?: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
+  resendVerificationEmail: () => Promise<{ error: Error | null }>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -137,6 +140,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const resendVerificationEmail = async () => {
+    if (!user?.email) {
+      return { error: new Error('No email found') };
+    }
+    
+    const { error } = await supabase.auth.resend({
+      type: 'signup',
+      email: user.email,
+      options: {
+        emailRedirectTo: `${window.location.origin}/`,
+      },
+    });
+    
+    return { error: error as Error | null };
+  };
+
+  // Check if email is verified
+  const isEmailVerified = !!user?.email_confirmed_at;
+
+  // Check if profile is complete
+  const isProfileComplete = !!(
+    profile?.full_name &&
+    profile?.username &&
+    profile?.location
+  );
+
   return (
     <AuthContext.Provider
       value={{
@@ -144,11 +173,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         session,
         profile,
         loading,
+        isEmailVerified,
+        isProfileComplete,
         signInWithGoogle,
         signInWithEmail,
         signUpWithEmail,
         signOut,
         refreshProfile,
+        resendVerificationEmail,
       }}
     >
       {children}
