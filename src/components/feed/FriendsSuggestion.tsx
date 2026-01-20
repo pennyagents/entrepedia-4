@@ -54,21 +54,28 @@ export function FriendsSuggestion() {
       let nearbyUsers: SuggestedFriend[] = [];
       let otherUsers: SuggestedFriend[] = [];
 
-      // Fetch nearby users if location is set
+      // Fetch nearby users if location is set - match by panchayath (2nd part) or place (1st part)
       if (profile?.location) {
+        // Location format: "Place, Panchayath, District, Country"
         const locationParts = profile.location.split(',').map(p => p.trim());
-        const searchLocation = locationParts[0];
+        const place = locationParts[0] || '';
+        const panchayath = locationParts[1] || '';
+        
+        // Search by panchayath first (more specific locality match)
+        const searchTerm = panchayath || place;
+        
+        if (searchTerm) {
+          const { data: nearbyData } = await supabase
+            .from('profiles')
+            .select('id, full_name, username, avatar_url, location')
+            .neq('id', user.id)
+            .ilike('location', `%${searchTerm}%`)
+            .limit(5);
 
-        const { data: nearbyData } = await supabase
-          .from('profiles')
-          .select('id, full_name, username, avatar_url, location')
-          .neq('id', user.id)
-          .ilike('location', `%${searchLocation}%`)
-          .limit(3);
-
-        nearbyUsers = (nearbyData || [])
-          .filter(u => !followingIds.has(u.id))
-          .map(u => ({ ...u, is_nearby: true }));
+          nearbyUsers = (nearbyData || [])
+            .filter(u => !followingIds.has(u.id))
+            .map(u => ({ ...u, is_nearby: true }));
+        }
       }
 
       // Fetch other suggested users

@@ -52,6 +52,17 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('posts');
   const [locationPopupOpen, setLocationPopupOpen] = useState(false);
+  const [hasCheckedLocation, setHasCheckedLocation] = useState(false);
+
+  // Auto-show location popup on login if location is not set
+  useEffect(() => {
+    if (!authLoading && user && profile && !hasCheckedLocation) {
+      setHasCheckedLocation(true);
+      if (!profile.location || profile.location.trim() === '') {
+        setLocationPopupOpen(true);
+      }
+    }
+  }, [authLoading, user, profile, hasCheckedLocation]);
 
   useEffect(() => {
     if (!authLoading && activeTab === 'posts') {
