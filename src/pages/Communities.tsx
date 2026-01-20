@@ -114,26 +114,18 @@ export default function Communities() {
 
     setSaving(true);
     try {
-      const { data, error } = await supabase
-        .from('communities')
-        .insert({
+      const sessionToken = localStorage.getItem('session_token');
+      const { data, error } = await supabase.functions.invoke('manage-community', {
+        body: {
+          action: 'create',
           name: name.trim(),
           description: description.trim() || null,
-          created_by: user.id,
-        })
-        .select()
-        .single();
+        },
+        headers: sessionToken ? { 'x-session-token': sessionToken } : {},
+      });
 
       if (error) throw error;
-
-      // Auto-join as admin
-      await supabase
-        .from('community_members')
-        .insert({
-          community_id: data.id,
-          user_id: user.id,
-          role: 'admin',
-        });
+      if (data?.error) throw new Error(data.error);
 
       toast({ title: 'Community created successfully!' });
       setDialogOpen(false);
@@ -154,13 +146,17 @@ export default function Communities() {
     }
 
     try {
-      await supabase
-        .from('community_members')
-        .insert({
+      const sessionToken = localStorage.getItem('session_token');
+      const { data, error } = await supabase.functions.invoke('manage-community', {
+        body: {
+          action: 'join',
           community_id: communityId,
-          user_id: user.id,
-          role: 'member',
-        });
+        },
+        headers: sessionToken ? { 'x-session-token': sessionToken } : {},
+      });
+
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
 
       toast({ title: 'Joined community!' });
       fetchCommunities();
@@ -173,11 +169,17 @@ export default function Communities() {
     if (!user) return;
 
     try {
-      await supabase
-        .from('community_members')
-        .delete()
-        .eq('community_id', communityId)
-        .eq('user_id', user.id);
+      const sessionToken = localStorage.getItem('session_token');
+      const { data, error } = await supabase.functions.invoke('manage-community', {
+        body: {
+          action: 'leave',
+          community_id: communityId,
+        },
+        headers: sessionToken ? { 'x-session-token': sessionToken } : {},
+      });
+
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
 
       toast({ title: 'Left community' });
       fetchCommunities();
@@ -201,15 +203,19 @@ export default function Communities() {
 
     setSaving(true);
     try {
-      const { error } = await supabase
-        .from('communities')
-        .update({
+      const sessionToken = localStorage.getItem('session_token');
+      const { data, error } = await supabase.functions.invoke('manage-community', {
+        body: {
+          action: 'update',
+          community_id: editingCommunity.id,
           name: name.trim(),
           description: description.trim() || null,
-        })
-        .eq('id', editingCommunity.id);
+        },
+        headers: sessionToken ? { 'x-session-token': sessionToken } : {},
+      });
 
       if (error) throw error;
+      if (data?.error) throw new Error(data.error);
 
       toast({ title: 'Community updated successfully!' });
       setEditDialogOpen(false);
@@ -228,12 +234,17 @@ export default function Communities() {
     if (!confirm('Are you sure you want to delete this community? This action cannot be undone.')) return;
 
     try {
-      const { error } = await supabase
-        .from('communities')
-        .delete()
-        .eq('id', communityId);
+      const sessionToken = localStorage.getItem('session_token');
+      const { data, error } = await supabase.functions.invoke('manage-community', {
+        body: {
+          action: 'delete',
+          community_id: communityId,
+        },
+        headers: sessionToken ? { 'x-session-token': sessionToken } : {},
+      });
 
       if (error) throw error;
+      if (data?.error) throw new Error(data.error);
 
       toast({ title: 'Community deleted' });
       fetchCommunities();

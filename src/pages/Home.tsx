@@ -10,13 +10,16 @@ import { DiscoverySection } from '@/components/feed/DiscoverySection';
 import { LocationPromptCard } from '@/components/feed/LocationPromptCard';
 import { ProfileCompletionBanner } from '@/components/feed/ProfileCompletionBanner';
 import { PromotionalBanner } from '@/components/feed/PromotionalBanner';
+import { MobileFriendSuggestions } from '@/components/feed/MobileFriendSuggestions';
+import { MobileTrendingPosts } from '@/components/feed/MobileTrendingPosts';
+import { LocationPopup } from '@/components/feed/LocationPopup';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Building2, Users, FileText, Plus } from 'lucide-react';
+import { Building2, Users, FileText, Plus, MapPin } from 'lucide-react';
 
 interface Post {
   id: string;
@@ -43,11 +46,12 @@ interface Post {
 }
 
 export default function Home() {
-  const { user, loading: authLoading } = useAuth();
+  const { user, profile, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('posts');
+  const [locationPopupOpen, setLocationPopupOpen] = useState(false);
 
   useEffect(() => {
     if (!authLoading && activeTab === 'posts') {
@@ -142,7 +146,23 @@ export default function Home() {
             {/* Profile Completion Warning - Fixed on top */}
             {user && <ProfileCompletionBanner className="sticky top-16 z-40" />}
 
-            {/* Location Prompt removed as per user request */}
+            {/* Mobile Friend Suggestions - Facebook style */}
+            <MobileFriendSuggestions />
+
+            {/* Mobile Trending Posts */}
+            <MobileTrendingPosts />
+
+            {/* Location Button for Mobile - if no location set */}
+            {user && !profile?.location && (
+              <Button
+                variant="outline"
+                className="w-full lg:hidden"
+                onClick={() => setLocationPopupOpen(true)}
+              >
+                <MapPin className="mr-2 h-4 w-4 text-primary" />
+                Set your location to find nearby friends
+              </Button>
+            )}
 
             {/* Mobile Quick Action */}
             <div className="flex gap-2 lg:hidden">
@@ -162,6 +182,12 @@ export default function Home() {
                 Community
               </Button>
             </div>
+
+            {/* Location Popup Dialog */}
+            <LocationPopup
+              open={locationPopupOpen}
+              onOpenChange={setLocationPopupOpen}
+            />
 
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
               <TabsList className="w-full grid grid-cols-3">
