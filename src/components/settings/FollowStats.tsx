@@ -99,7 +99,7 @@ export function FollowStats({ userId }: FollowStatsProps) {
     setUnfollowingId(targetId);
     try {
       const { error } = await supabase.functions.invoke('toggle-follow', {
-        body: { following_id: targetId, action: 'unfollow' }
+        body: { user_id: userId, following_id: targetId, action: 'unfollow' }
       });
 
       if (error) throw error;
@@ -121,7 +121,7 @@ export function FollowStats({ userId }: FollowStatsProps) {
     setUnfollowingId(targetId);
     try {
       const { error } = await supabase.functions.invoke('toggle-follow', {
-        body: { following_id: targetId, action: 'follow' }
+        body: { user_id: userId, following_id: targetId, action: 'follow' }
       });
 
       if (error) throw error;

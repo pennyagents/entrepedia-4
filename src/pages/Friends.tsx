@@ -168,7 +168,7 @@ export default function Friends() {
 
     try {
       const { data, error } = await supabase.functions.invoke('toggle-follow', {
-        body: { following_id: userId, action }
+        body: { user_id: user.id, following_id: userId, action }
       });
 
       if (error) {
