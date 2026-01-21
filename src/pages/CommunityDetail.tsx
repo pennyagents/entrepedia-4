@@ -423,15 +423,15 @@ export default function CommunityDetail() {
                           </AvatarFallback>
                         </Avatar>
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-1">
+                          <div className="flex items-center gap-2 mb-1 flex-wrap">
                             <span 
                               className="font-semibold text-foreground cursor-pointer hover:underline"
                               onClick={() => navigate(`/user/${discussion.user_id}`)}
                             >
-                              {discussion.profiles?.full_name || 'Anonymous'}
+                              {discussion.profiles?.username || discussion.profiles?.full_name || 'Anonymous'}
                             </span>
                             <span className="text-xs text-muted-foreground">
-                              @{discussion.profiles?.username || 'user'}
+                              ({discussion.user_id.slice(0, 8)}...)
                             </span>
                             <span className="text-xs text-muted-foreground">
                               · {formatDistanceToNow(new Date(discussion.created_at), { addSuffix: true })}
