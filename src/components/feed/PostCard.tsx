@@ -51,6 +51,8 @@ export function PostCard({ post, onUpdate }: PostCardProps) {
   const { toast } = useToast();
   const [showComments, setShowComments] = useState(false);
   const [isLiking, setIsLiking] = useState(false);
+  const [isSaved, setIsSaved] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const isLiked = user ? post.post_likes.some(like => like.user_id === user.id) : false;
   const likeCount = post.post_likes.length;
@@ -64,7 +66,6 @@ export function PostCard({ post, onUpdate }: PostCardProps) {
 
     setIsLiking(true);
     try {
-      // Use edge function to bypass RLS (since we use custom auth)
       const response = await supabase.functions.invoke('toggle-like', {
         body: {
           user_id: user.id,
@@ -90,16 +91,55 @@ export function PostCard({ post, onUpdate }: PostCardProps) {
   };
 
   const handleShare = async () => {
+    const postUrl = `${window.location.origin}/post/${post.id}`;
     try {
-      await navigator.share({
-        title: `Post by ${post.profiles?.full_name}`,
-        text: post.content || 'Check out this post!',
-        url: `${window.location.origin}/post/${post.id}`,
-      });
-    } catch {
-      // Fallback: copy to clipboard
-      navigator.clipboard.writeText(`${window.location.origin}/post/${post.id}`);
-      toast({ title: 'Link copied to clipboard!' });
+      if (navigator.share) {
+        await navigator.share({
+          title: `Post by ${post.profiles?.full_name || 'User'}`,
+          text: post.content || 'Check out this post!',
+          url: postUrl,
+        });
+      } else {
+        await navigator.clipboard.writeText(postUrl);
+        toast({ title: 'Link copied to clipboard!' });
+      }
+    } catch (error: any) {
+      // User cancelled share or error - fallback to clipboard
+      if (error.name !== 'AbortError') {
+        await navigator.clipboard.writeText(postUrl);
+        toast({ title: 'Link copied to clipboard!' });
+      }
+    }
+  };
+
+  const handleSave = () => {
+    setIsSaved(!isSaved);
+    toast({ title: isSaved ? 'Post removed from saved' : 'Post saved!' });
+  };
+
+  const handleDelete = async () => {
+    if (!user || user.id !== post.user_id) {
+      toast({ title: 'You can only delete your own posts', variant: 'destructive' });
+      return;
+    }
+
+    setIsDeleting(true);
+    try {
+      const { error } = await supabase
+        .from('posts')
+        .delete()
+        .eq('id', post.id)
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+
+      toast({ title: 'Post deleted successfully' });
+      onUpdate();
+    } catch (error: any) {
+      console.error('Error deleting post:', error);
+      toast({ title: 'Failed to delete post', description: error.message, variant: 'destructive' });
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -139,9 +179,17 @@ export function PostCard({ post, onUpdate }: PostCardProps) {
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="bg-popover">
               <DropdownMenuItem onClick={handleShare}>Share</DropdownMenuItem>
-              <DropdownMenuItem>Save</DropdownMenuItem>
+              <DropdownMenuItem onClick={handleSave}>
+                {isSaved ? 'Unsave' : 'Save'}
+              </DropdownMenuItem>
               {user?.id === post.user_id && (
-                <DropdownMenuItem className="text-destructive">Delete</DropdownMenuItem>
+                <DropdownMenuItem 
+                  className="text-destructive" 
+                  onClick={handleDelete}
+                  disabled={isDeleting}
+                >
+                  {isDeleting ? 'Deleting...' : 'Delete'}
+                </DropdownMenuItem>
               )}
             </DropdownMenuContent>
           </DropdownMenu>
@@ -221,8 +269,13 @@ export function PostCard({ post, onUpdate }: PostCardProps) {
             Share
           </Button>
 
-          <Button variant="ghost" size="sm" className="gap-2">
-            <Bookmark className="h-5 w-5" />
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            className={cn('gap-2', isSaved && 'text-primary')}
+            onClick={handleSave}
+          >
+            <Bookmark className={cn('h-5 w-5', isSaved && 'fill-current')} />
           </Button>
         </div>
 
