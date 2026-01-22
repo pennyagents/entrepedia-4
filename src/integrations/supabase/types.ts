@@ -417,6 +417,41 @@ export type Database = {
           },
         ]
       }
+      community_permissions: {
+        Row: {
+          community_id: string
+          granted_at: string | null
+          granted_by: string | null
+          id: string
+          permission: Database["public"]["Enums"]["community_permission_type"]
+          user_id: string
+        }
+        Insert: {
+          community_id: string
+          granted_at?: string | null
+          granted_by?: string | null
+          id?: string
+          permission: Database["public"]["Enums"]["community_permission_type"]
+          user_id: string
+        }
+        Update: {
+          community_id?: string
+          granted_at?: string | null
+          granted_by?: string | null
+          id?: string
+          permission?: Database["public"]["Enums"]["community_permission_type"]
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "community_permissions_community_id_fkey"
+            columns: ["community_id"]
+            isOneToOne: false
+            referencedRelation: "communities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       community_poll_options: {
         Row: {
           created_at: string
@@ -1277,6 +1312,14 @@ export type Database = {
         Returns: string
       }
       has_any_admin_role: { Args: { _user_id: string }; Returns: boolean }
+      has_community_permission: {
+        Args: {
+          _community_id: string
+          _permission: Database["public"]["Enums"]["community_permission_type"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["admin_role"]
@@ -1286,6 +1329,10 @@ export type Database = {
       }
       is_admin: { Args: never; Returns: boolean }
       is_business_owner: { Args: { business_uuid: string }; Returns: boolean }
+      is_community_creator: {
+        Args: { _community_id: string; _user_id: string }
+        Returns: boolean
+      }
       is_community_member: { Args: { comm_id: string }; Returns: boolean }
       is_conversation_participant: {
         Args: { conv_id: string }
@@ -1308,6 +1355,11 @@ export type Database = {
         | "health"
         | "finance"
         | "other"
+      community_permission_type:
+        | "edit_community"
+        | "create_polls"
+        | "moderate_discussions"
+        | "manage_members"
       user_role: "user" | "admin"
     }
     CompositeTypes: {
@@ -1448,6 +1500,12 @@ export const Constants = {
         "health",
         "finance",
         "other",
+      ],
+      community_permission_type: [
+        "edit_community",
+        "create_polls",
+        "moderate_discussions",
+        "manage_members",
       ],
       user_role: ["user", "admin"],
     },

@@ -44,7 +44,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    const { action, community_id, name, description, cover_image_url, discussion_id, member_user_id } = await req.json();
+    const { action, community_id, name, description, cover_image_url, discussion_id, member_user_id, target_user_id, permission } = await req.json();
 
     // CREATE community
     if (action === "create") {
@@ -271,6 +271,8 @@ Deno.serve(async (req) => {
 
       // Check if user is community creator (admin)
       let isAdmin = false;
+      let hasModeratePermission = false;
+      
       if (!isOwner) {
         const { data: community } = await supabase
           .from("communities")
@@ -279,9 +281,22 @@ Deno.serve(async (req) => {
           .maybeSingle();
 
         isAdmin = community?.created_by === userId;
+        
+        // Check if user has moderate_discussions permission
+        if (!isAdmin) {
+          const { data: permission } = await supabase
+            .from("community_permissions")
+            .select("id")
+            .eq("community_id", discussion.community_id)
+            .eq("user_id", userId)
+            .eq("permission", "moderate_discussions")
+            .maybeSingle();
+          
+          hasModeratePermission = !!permission;
+        }
       }
 
-      if (!isOwner && !isAdmin) {
+      if (!isOwner && !isAdmin && !hasModeratePermission) {
         return new Response(
           JSON.stringify({ error: "Not authorized to delete this discussion" }),
           { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -325,17 +340,41 @@ Deno.serve(async (req) => {
         );
       }
 
-      // Verify admin (community creator)
+      // Verify admin (community creator) or user with manage_members permission
       const { data: communityCheck } = await supabase
         .from("communities")
         .select("created_by")
         .eq("id", community_id)
         .maybeSingle();
 
-      if (!communityCheck || communityCheck.created_by !== userId) {
+      const isCreator = communityCheck?.created_by === userId;
+      
+      // Check if user has manage_members permission
+      let hasManagePermission = false;
+      if (!isCreator) {
+        const { data: permissionCheck } = await supabase
+          .from("community_permissions")
+          .select("id")
+          .eq("community_id", community_id)
+          .eq("user_id", userId)
+          .eq("permission", "manage_members")
+          .maybeSingle();
+        
+        hasManagePermission = !!permissionCheck;
+      }
+
+      if (!isCreator && !hasManagePermission) {
         return new Response(
-          JSON.stringify({ error: "Only community admins can remove members" }),
+          JSON.stringify({ error: "Only community admins or members with manage permission can remove members" }),
           { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Prevent removing the community creator
+      if (member_user_id === communityCheck?.created_by) {
+        return new Response(
+          JSON.stringify({ error: "Cannot remove the community creator" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
 
@@ -358,6 +397,147 @@ Deno.serve(async (req) => {
         console.error("Remove member error:", removeError);
         return new Response(
           JSON.stringify({ error: removeError.message }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      return new Response(
+        JSON.stringify({ success: true }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // GRANT PERMISSION (creator only)
+    if (action === "grant_permission") {
+      if (!community_id || !target_user_id || !permission) {
+        return new Response(
+          JSON.stringify({ error: "Community ID, target user ID, and permission are required" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Validate permission type
+      const validPermissions = ['edit_community', 'create_polls', 'moderate_discussions', 'manage_members'];
+      if (!validPermissions.includes(permission)) {
+        return new Response(
+          JSON.stringify({ error: "Invalid permission type" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Verify user is community creator
+      const { data: communityData } = await supabase
+        .from("communities")
+        .select("created_by")
+        .eq("id", community_id)
+        .maybeSingle();
+
+      if (!communityData || communityData.created_by !== userId) {
+        return new Response(
+          JSON.stringify({ error: "Only community creators can manage permissions" }),
+          { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Check if user is a member
+      const { data: memberCheck } = await supabase
+        .from("community_members")
+        .select("id")
+        .eq("community_id", community_id)
+        .eq("user_id", target_user_id)
+        .maybeSingle();
+
+      if (!memberCheck) {
+        return new Response(
+          JSON.stringify({ error: "User is not a member of this community" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Check if permission already exists
+      const { data: existingPermission } = await supabase
+        .from("community_permissions")
+        .select("id")
+        .eq("community_id", community_id)
+        .eq("user_id", target_user_id)
+        .eq("permission", permission)
+        .maybeSingle();
+
+      if (existingPermission) {
+        return new Response(
+          JSON.stringify({ success: true, message: "Permission already granted" }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Grant permission
+      const { error: grantError } = await supabase
+        .from("community_permissions")
+        .insert({
+          community_id,
+          user_id: target_user_id,
+          permission,
+          granted_by: userId,
+        });
+
+      if (grantError) {
+        console.error("Grant permission error:", grantError);
+        return new Response(
+          JSON.stringify({ error: grantError.message }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      return new Response(
+        JSON.stringify({ success: true }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // REVOKE PERMISSION (creator only)
+    if (action === "revoke_permission") {
+      if (!community_id || !target_user_id || !permission) {
+        return new Response(
+          JSON.stringify({ error: "Community ID, target user ID, and permission are required" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Validate permission type
+      const validPermissions = ['edit_community', 'create_polls', 'moderate_discussions', 'manage_members'];
+      if (!validPermissions.includes(permission)) {
+        return new Response(
+          JSON.stringify({ error: "Invalid permission type" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Verify user is community creator
+      const { data: communityData } = await supabase
+        .from("communities")
+        .select("created_by")
+        .eq("id", community_id)
+        .maybeSingle();
+
+      if (!communityData || communityData.created_by !== userId) {
+        return new Response(
+          JSON.stringify({ error: "Only community creators can manage permissions" }),
+          { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Revoke permission
+      const { error: revokeError } = await supabase
+        .from("community_permissions")
+        .delete()
+        .eq("community_id", community_id)
+        .eq("user_id", target_user_id)
+        .eq("permission", permission);
+
+      if (revokeError) {
+        console.error("Revoke permission error:", revokeError);
+        return new Response(
+          JSON.stringify({ error: revokeError.message }),
           { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }

@@ -28,9 +28,10 @@ interface Poll {
 interface PollsTabProps {
   communityId: string;
   isMember: boolean;
+  canCreatePolls?: boolean;
 }
 
-export function PollsTab({ communityId, isMember }: PollsTabProps) {
+export function PollsTab({ communityId, isMember, canCreatePolls }: PollsTabProps) {
   const { user } = useAuth();
   const [polls, setPolls] = useState<Poll[]>([]);
   const [loading, setLoading] = useState(true);
@@ -121,9 +122,12 @@ export function PollsTab({ communityId, isMember }: PollsTabProps) {
     );
   }
 
+  // Show create button if user is a member AND has permission (or if canCreatePolls is undefined, fallback to isMember)
+  const showCreateButton = isMember && (canCreatePolls === undefined || canCreatePolls);
+
   return (
     <div className="space-y-4">
-      {isMember && (
+      {showCreateButton && (
         <div className="flex justify-end">
           <CreatePollDialog communityId={communityId} onPollCreated={fetchPolls} />
         </div>

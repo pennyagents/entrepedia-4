@@ -7,9 +7,12 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
+import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { useCommunityPermissions } from '@/hooks/useCommunityPermissions';
+import { CommunityPermissionsDialog } from '@/components/community/CommunityPermissionsDialog';
 import { 
   Users, 
   UserPlus, 
@@ -19,7 +22,9 @@ import {
   Send,
   MessageSquare,
   Trash2,
-  BarChart3
+  BarChart3,
+  Shield,
+  Settings2
 } from 'lucide-react';
 import { PollsTab } from '@/components/community/PollsTab';
 import { formatDistanceToNow } from 'date-fns';
@@ -71,6 +76,15 @@ export default function CommunityDetail() {
   const [loading, setLoading] = useState(true);
   const [newMessage, setNewMessage] = useState('');
   const [sending, setSending] = useState(false);
+
+  // Community permissions hook
+  const {
+    canModerateDiscussions,
+    canManageMembers,
+    canCreatePolls,
+    refresh: refreshPermissions,
+    membersWithPermissions,
+  } = useCommunityPermissions(id);
 
   useEffect(() => {
     if (id) {
@@ -380,6 +394,16 @@ export default function CommunityDetail() {
             {community.description && (
               <p className="mt-4 text-foreground">{community.description}</p>
             )}
+
+            {/* Permissions Management (Creator only) */}
+            {isCreator && (
+              <div className="mt-4 pt-4 border-t border-border">
+                <CommunityPermissionsDialog 
+                  communityId={community.id} 
+                  creatorId={community.created_by} 
+                />
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -426,15 +450,24 @@ export default function CommunityDetail() {
                           <p className="font-semibold text-foreground truncate">
                             {member.profiles?.full_name || 'Anonymous'}
                           </p>
-                          {member.role === 'admin' && (
+                        {member.role === 'admin' && (
                             <Crown className="h-4 w-4 text-amber-500" />
                           )}
+                          {/* Show permission badges */}
+                          {membersWithPermissions.find(m => m.user_id === member.user_id)?.permissions.length > 0 && (
+                            <Badge variant="secondary" className="text-xs gap-1">
+                              <Shield className="h-3 w-3" />
+                              {membersWithPermissions.find(m => m.user_id === member.user_id)?.permissions.length}
+                            </Badge>
+                          )}
                         </div>
-                        <p className="text-sm text-muted-foreground truncate">
-                          ID: {member.user_id.slice(0, 8)}
-                        </p>
+                        {member.profiles?.username && !/^\d+$/.test(member.profiles.username) && (
+                          <p className="text-sm text-muted-foreground truncate">
+                            @{member.profiles.username}
+                          </p>
+                        )}
                       </div>
-                      {isCreator && member.user_id !== user?.id && (
+                      {(isCreator || canManageMembers) && member.user_id !== user?.id && member.user_id !== community?.created_by && (
                         <Button
                           variant="ghost"
                           size="icon"
@@ -455,7 +488,7 @@ export default function CommunityDetail() {
           </TabsContent>
 
           <TabsContent value="polls" className="mt-4">
-            <PollsTab communityId={id!} isMember={isMember} />
+            <PollsTab communityId={id!} isMember={isMember} canCreatePolls={canCreatePolls} />
           </TabsContent>
 
           <TabsContent value="discussions" className="mt-4 space-y-4">
@@ -539,7 +572,7 @@ export default function CommunityDetail() {
                                 · {formatDistanceToNow(new Date(discussion.created_at), { addSuffix: true })}
                               </span>
                             </div>
-                            {(user?.id === discussion.user_id || isCreator) && (
+                            {(user?.id === discussion.user_id || isCreator || canModerateDiscussions) && (
                               <Button
                                 variant="ghost"
                                 size="icon"
