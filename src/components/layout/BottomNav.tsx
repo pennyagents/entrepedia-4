@@ -1,12 +1,11 @@
 import { Link, useLocation } from 'react-router-dom';
-import { Home, Compass, PlusSquare, Users, User, UserCheck } from 'lucide-react';
+import { PlusSquare, Users, User, UserCheck } from 'lucide-react';
+import logoImg from '@/assets/logo.jpg';
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
 
-import { Building2 } from 'lucide-react';
-
 const navItems = [
-  { icon: Home, label: 'Home', path: '/' },
+  { icon: null, label: 'Home', path: '/', isLogo: true },
   { icon: UserCheck, label: 'Friends', path: '/friends' },
   { icon: PlusSquare, label: 'Create', path: '/create' },
   { icon: Users, label: 'Community', path: '/communities' },
@@ -20,7 +19,7 @@ export function BottomNav() {
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 md:hidden glass-effect border-t">
       <div className="flex items-center justify-around h-16 px-2">
-        {navItems.map(({ icon: Icon, label, path }) => {
+        {navItems.map(({ icon: Icon, label, path, isLogo }) => {
           const isActive = location.pathname === path;
           const requiresAuth = ['/create', '/profile'].includes(path);
           const actualPath = requiresAuth && !user ? '/auth' : path;
@@ -36,7 +35,18 @@ export function BottomNav() {
                   : 'text-muted-foreground hover:text-foreground'
               )}
             >
-              <Icon className={cn('h-6 w-6', isActive && 'stroke-[2.5px]')} />
+              {isLogo ? (
+                <img 
+                  src={logoImg} 
+                  alt="Home" 
+                  className={cn(
+                    'h-6 w-6 rounded-md object-cover',
+                    isActive && 'ring-2 ring-primary ring-offset-1 ring-offset-background'
+                  )}
+                />
+              ) : Icon ? (
+                <Icon className={cn('h-6 w-6', isActive && 'stroke-[2.5px]')} />
+              ) : null}
               <span className="text-xs font-medium">{label}</span>
             </Link>
           );

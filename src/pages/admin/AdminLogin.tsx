@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import logoImg from '@/assets/logo.jpg';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -119,10 +120,17 @@ export default function AdminLogin() {
 
         {/* Logo */}
         <div className="text-center mb-8">
-          <div className="mx-auto h-20 w-20 rounded-2xl bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center shadow-lg mb-4">
-            <Shield className="h-10 w-10 text-primary-foreground" />
+          <div className="relative mx-auto w-fit">
+            <img 
+              src={logoImg} 
+              alt="സംരംഭക.com Logo" 
+              className="h-20 w-auto rounded-2xl shadow-glow"
+            />
+            <div className="absolute -bottom-2 -right-2 h-8 w-8 rounded-lg bg-primary flex items-center justify-center shadow-lg">
+              <Shield className="h-4 w-4 text-primary-foreground" />
+            </div>
           </div>
-          <h1 className="text-3xl font-bold text-foreground">Admin Panel</h1>
+          <h1 className="text-3xl font-bold text-foreground mt-4">Admin Panel</h1>
           <p className="text-muted-foreground mt-2">സംരംഭക.com Administration</p>
         </div>
 

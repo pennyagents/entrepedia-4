@@ -1,5 +1,6 @@
-import { useLocation } from "react-router-dom";
+import { useLocation, Link } from "react-router-dom";
 import { useEffect } from "react";
+import logoImg from '@/assets/logo.jpg';
 
 const NotFound = () => {
   const location = useLocation();
@@ -9,13 +10,21 @@ const NotFound = () => {
   }, [location.pathname]);
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-muted">
+    <div className="flex min-h-screen items-center justify-center gradient-hero px-4">
       <div className="text-center">
-        <h1 className="mb-4 text-4xl font-bold">404</h1>
-        <p className="mb-4 text-xl text-muted-foreground">Oops! Page not found</p>
-        <a href="/" className="text-primary underline hover:text-primary/90">
+        <img 
+          src={logoImg} 
+          alt="സംരംഭക.com Logo" 
+          className="h-24 w-auto rounded-2xl mx-auto mb-6 shadow-glow opacity-60"
+        />
+        <h1 className="mb-2 text-6xl font-bold text-primary">404</h1>
+        <p className="mb-6 text-xl text-muted-foreground">Oops! Page not found</p>
+        <Link 
+          to="/" 
+          className="inline-flex items-center gap-2 px-6 py-3 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors font-medium"
+        >
           Return to Home
-        </a>
+        </Link>
       </div>
     </div>
   );
