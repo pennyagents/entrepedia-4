@@ -192,27 +192,48 @@ export function PanchayathLocationPicker({ value, onChange }: LocationPickerProp
         <Label>Panchayath / Municipality</Label>
         {panchayathSuggestions.length > 0 ? (
           <div className="space-y-2">
-            <Select value={panchayath} onValueChange={setPanchayath}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select panchayath" />
-              </SelectTrigger>
-              <SelectContent>
-                {panchayathSuggestions.map((p) => (
-                  <SelectItem key={p} value={p}>
-                    {p}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {!panchayath && (
+            {/* Check if current value is in the list or empty - show dropdown */}
+            {(!panchayath || panchayathSuggestions.includes(panchayath)) ? (
               <>
+                <Select value={panchayath} onValueChange={setPanchayath}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select panchayath" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {panchayathSuggestions.map((p) => (
+                      <SelectItem key={p} value={p}>
+                        {p}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
                 <p className="text-xs text-muted-foreground">
-                  Or type below if not in list
+                  Not in list?{' '}
+                  <button
+                    type="button"
+                    className="text-primary hover:underline"
+                    onClick={() => setPanchayath('_custom_')}
+                  >
+                    Type manually
+                  </button>
                 </p>
+              </>
+            ) : (
+              <>
                 <Input
-                  placeholder="Type panchayath name if not in list"
+                  placeholder="Type panchayath name"
+                  value={panchayath === '_custom_' ? '' : panchayath}
                   onChange={(e) => setPanchayath(e.target.value)}
                 />
+                <p className="text-xs text-muted-foreground">
+                  <button
+                    type="button"
+                    className="text-primary hover:underline"
+                    onClick={() => setPanchayath('')}
+                  >
+                    Select from list
+                  </button>
+                </p>
               </>
             )}
           </div>
